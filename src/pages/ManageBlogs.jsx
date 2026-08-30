@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './screens.css';
 
 const posts = [
@@ -45,6 +46,7 @@ const posts = [
 ];
 
 const ManageBlogs = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -62,7 +64,7 @@ const ManageBlogs = () => {
           <h1 className="screen-title">Manage Blogs & News</h1>
           <p className="screen-subtitle">Create, edit, and manage all content publications.</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => navigate('/blogs/new')}>
           <span className="material-symbols-outlined">add</span>
           Add New Post
         </button>

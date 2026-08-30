@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './screens.css';
 
 const partners = [
@@ -9,6 +10,7 @@ const partners = [
 ];
 
 const ManagePartners = () => {
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -24,7 +26,7 @@ const ManagePartners = () => {
           <h1 className="screen-title">Strategic Partnerships</h1>
           <p className="screen-subtitle">Manage corporate and NGO partner relationships.</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => navigate('/partners/new')}>
           <span className="material-symbols-outlined">add</span>
           Add New Partner
         </button>

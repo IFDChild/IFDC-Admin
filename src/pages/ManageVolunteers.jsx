@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './screens.css';
 
 const volunteers = [
@@ -10,6 +11,7 @@ const volunteers = [
 ];
 
 const ManageVolunteers = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
   const filtered = volunteers.filter(v => v.name.toLowerCase().includes(search.toLowerCase()));
@@ -88,7 +90,7 @@ const ManageVolunteers = () => {
             </thead>
             <tbody>
               {filtered.map(v => (
-                <tr key={v.id} className="table-row">
+                <tr key={v.id} className="table-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/volunteers/review')}>
                   <td>
                     <div className="entity-cell">
                       {v.avatar ? (
@@ -103,7 +105,9 @@ const ManageVolunteers = () => {
                   <td className="td-mono">{v.date}</td>
                   <td><span className={`badge ${v.statusClass}`}>{v.status}</span></td>
                   <td className="text-right">
-                    <button className="icon-action"><span className="material-symbols-outlined">more_vert</span></button>
+                    <button className="icon-action" title="Review Application" onClick={(e) => { e.stopPropagation(); navigate('/volunteers/review'); }}>
+                      <span className="material-symbols-outlined">visibility</span>
+                    </button>
                   </td>
                 </tr>
               ))}
