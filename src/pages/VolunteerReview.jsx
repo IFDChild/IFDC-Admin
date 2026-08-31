@@ -46,7 +46,7 @@ const VolunteerReview = () => {
               </div>
               <p style={{ fontSize:"14px", color:"var(--on-surface-variant)", marginTop:"4px" }}>
                 Application ID: <span style={{ fontFamily:"JetBrains Mono, monospace", fontSize:"12px" }}>VOL-2023-089</span>
-                {" "}• Submitted 2 days ago
+                {" "}â€¢ Submitted 2 days ago
               </p>
             </div>
           </div>
@@ -159,7 +159,7 @@ const VolunteerReview = () => {
                 </div>
                 <div>
                   <p style={{ fontSize:"12px", fontWeight:600, color:"var(--on-surface)" }}>Elena_Silva_Resume.pdf</p>
-                  <p style={{ fontSize:"13px", color:"var(--on-surface-variant)" }}>2.4 MB • Uploaded Oct 24, 2023</p>
+                  <p style={{ fontSize:"13px", color:"var(--on-surface-variant)" }}>2.4 MB â€¢ Uploaded Oct 24, 2023</p>
                 </div>
               </div>
               <span className="material-symbols-outlined" style={{ color:"var(--on-surface-variant)" }}>open_in_new</span>
@@ -185,7 +185,7 @@ const VolunteerReview = () => {
           </div>
         </div>
 
-        {/* RIGHT — Internal Review */}
+        {/* RIGHT - Internal Review */}
         <div>
           <div style={{ background:"rgba(0,39,76,0.05)", border:"1px solid rgba(0,39,76,0.2)",
             borderRadius:"8px", padding:"24px", display:"flex", flexDirection:"column", gap:"24px",
