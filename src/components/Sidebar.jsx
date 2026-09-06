@@ -32,9 +32,17 @@ const Sidebar = () => {
           <span className="material-symbols-outlined">handshake</span>
           <span>Partners</span>
         </NavLink>
+        <NavLink to="/resources" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+          <span className="material-symbols-outlined">folder_shared</span>
+          <span>Resources</span>
+        </NavLink>
         <NavLink to="/settings" className={({isActive}) => isActive ? "nav-link active mt-auto" : "nav-link mt-auto"}>
           <span className="material-symbols-outlined">settings</span>
           <span>Settings</span>
+        </NavLink>
+        <NavLink to="/login" className="nav-link" style={{ marginBottom: '0.75rem', opacity: 0.85 }}>
+          <span className="material-symbols-outlined">logout</span>
+          <span>Logout</span>
         </NavLink>
       </div>
     </nav>

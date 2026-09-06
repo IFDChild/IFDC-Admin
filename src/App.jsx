@@ -9,10 +9,13 @@ import Settings from './pages/Settings'
 import AddBlogPost from './pages/AddBlogPost'
 import AddPartner from './pages/AddPartner'
 import VolunteerReview from './pages/VolunteerReview'
+import ResourceManagement from './pages/ResourceManagement'
+import Login from './pages/Login'
 
 function App() {
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
       <Route path="/" element={<Layout />}>
         <Route index element={<Overview />} />
         <Route path="blogs" element={<ManageBlogs />} />
@@ -21,6 +24,7 @@ function App() {
         <Route path="volunteers/review" element={<VolunteerReview />} />
         <Route path="partners" element={<ManagePartners />} />
         <Route path="partners/new" element={<AddPartner />} />
+        <Route path="resources" element={<ResourceManagement />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
