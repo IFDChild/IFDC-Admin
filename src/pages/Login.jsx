@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { loginUser, saveSession } from '../services/authService';
 import './Login.css';
 
 const PRESET_ROLES = [
@@ -8,7 +9,7 @@ const PRESET_ROLES = [
     label: 'Admin',
     email: 'admin@ifdchild.org',
     roleTag: 'System Administrator',
-    defaultPassword: 'SuperSecureChildPass2024!'
+    defaultPassword: 'Admin@ifdc'
   },
   {
     id: 'editor',
@@ -44,28 +45,24 @@ const Login = () => {
     setErrorMessage('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setIsSubmitting(true);
 
-    // Simulate authentication verification
-    setTimeout(() => {
-      try {
-        localStorage.setItem(
-          'ifdc_admin_user',
-          JSON.stringify({
-            email,
-            role: selectedRole.roleTag,
-            signedInAt: new Date().toISOString()
-          })
-        );
-      } catch (err) {
-        console.warn('LocalStorage unavailable', err);
-      }
-      setIsSubmitting(false);
+    try {
+      const data = await loginUser(email, password, rememberDevice);
+      saveSession(data);
       navigate('/');
-    }, 800);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof TypeError
+          ? 'Could not reach the server. Is the API running?'
+          : err.message
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -119,25 +116,8 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Quick Access Role Presets */}
-          <div className="preset-roles-section">
-            <div className="preset-roles-header">
-              <span>Preset Role Access:</span>
-              <span className="preset-version">v2.4.1</span>
-            </div>
-            <div className="preset-roles-grid">
-              {PRESET_ROLES.map((role) => (
-                <button
-                  key={role.id}
-                  type="button"
-                  className={`role-pill-btn ${selectedRole.id === role.id ? 'active' : ''}`}
-                  onClick={() => handleSelectRole(role)}
-                >
-                  {role.label}
-                </button>
-              ))}
-            </div>
-          </div>
+
+
 
           {/* Form */}
           <form className="login-form" onSubmit={handleSubmit}>

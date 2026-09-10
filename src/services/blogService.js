@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+import { API_URL } from "./apiConfig";
 
 export const uploadBlogImage = async (file) => {
 

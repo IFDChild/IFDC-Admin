@@ -11,17 +11,19 @@ import AddPartner from './pages/AddPartner'
 import VolunteerReview from './pages/VolunteerReview'
 import ResourceManagement from './pages/ResourceManagement'
 import Login from './pages/Login'
+import Register from './pages/Register'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/" element={<Layout />}>
         <Route index element={<Overview />} />
         <Route path="blogs" element={<ManageBlogs />} />
         <Route path="blogs/new" element={<AddBlogPost />} />
         <Route path="volunteers" element={<ManageVolunteers />} />
-        <Route path="volunteers/review" element={<VolunteerReview />} />
+        <Route path="volunteers/review/:id" element={<VolunteerReview />} />
         <Route path="partners" element={<ManagePartners />} />
         <Route path="partners/new" element={<AddPartner />} />
         <Route path="resources" element={<ResourceManagement />} />
