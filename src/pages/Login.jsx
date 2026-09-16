@@ -1,49 +1,32 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { loginUser, saveSession } from '../services/authService';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { getSession, loginUser, saveSession } from '../services/authService';
+import logo from '../assets/ifdc-logo.png';
 import './Login.css';
 
-const PRESET_ROLES = [
-  {
-    id: 'admin',
-    label: 'Admin',
-    email: 'admin@ifdchild.org',
-    roleTag: 'System Administrator',
-    defaultPassword: 'Admin@ifdc'
-  },
-  {
-    id: 'editor',
-    label: 'Editor',
-    email: 'editor@ifdchild.org',
-    roleTag: 'Content Editor',
-    defaultPassword: 'ChildSafetyEditor2024!'
-  },
-  {
-    id: 'coordinator',
-    label: 'Coordinator',
-    email: 'coordinator@ifdchild.org',
-    roleTag: 'Volunteer Coordinator',
-    defaultPassword: 'VolunteerCoord2024!'
-  }
+const HIGHLIGHTS = [
+  { icon: 'group', title: 'Volunteers', text: 'Review and approve applications' },
+  { icon: 'folder_shared', title: 'Resources', text: 'Publish guides for parents, children and media' },
+  { icon: 'article', title: 'Blogs & News', text: 'Share stories from our programmes' }
 ];
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || '/';
 
-  const [selectedRole, setSelectedRole] = useState(PRESET_ROLES[0]);
-  const [email, setEmail] = useState(PRESET_ROLES[0].email);
-  const [password, setPassword] = useState(PRESET_ROLES[0].defaultPassword);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showForgotHelp, setShowForgotHelp] = useState(false);
 
-  const handleSelectRole = (role) => {
-    setSelectedRole(role);
-    setEmail(role.email);
-    setPassword(role.defaultPassword);
-    setErrorMessage('');
-  };
+  if (getSession()) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,13 +34,14 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const data = await loginUser(email, password, rememberDevice);
-      saveSession(data);
-      navigate('/');
+      const data = await loginUser(email.trim(), password, rememberDevice);
+      saveSession(data, rememberDevice);
+      navigate(redirectTo, { replace: true });
     } catch (err) {
+      setPassword('');
       setErrorMessage(
         err instanceof TypeError
-          ? 'Could not reach the server. Is the API running?'
+          ? 'Could not reach the server. Please check the API is running and try again.'
           : err.message
       );
     } finally {
@@ -65,191 +49,173 @@ const Login = () => {
     }
   };
 
-  return (
-    <div className="login-page">
-      {/* Ambient background glows */}
-      <div className="login-glow-1" />
-      <div className="login-glow-2" />
+  const trackCapsLock = (e) => {
+    if (typeof e.getModifierState === 'function') {
+      setCapsLockOn(e.getModifierState('CapsLock'));
+    }
+  };
 
-      <div className="login-container">
-        {/* Security / Authorized Personnel Badge */}
-        <div className="login-security-badge">
-          <span className="pulse-dot" />
-          <span>Restricted Access • Authorized Personnel Only</span>
+  return (
+    <div className="auth-shell">
+      {/* ── Brand panel ── */}
+      <aside className="auth-brand">
+        <div className="auth-brand-rings" aria-hidden="true">
+          <span /><span /><span />
         </div>
 
-        {/* Main Card */}
-        <div className="login-card">
-          {/* Brand Header */}
-          <div className="login-brand-header">
-            <div className="w-48 mb-2 flex items-center justify-center">
-              <img
-                src="https://lh3.googleusercontent.com/aida/AEtjO1Uudh8Vw-1avkUCOyMgfIjKn4G3zDBdwMavsaDC9dhdrqZ7P0AV4nJefxTzBgvZAakkw0FgsuUXscZibvrLC7w-frYFbOVlYTCkv5F0hdrhz2rUleryjlUT-GTLX2fOZJolyWAAAV1LtduQsMdFRgH8XeC7AF-jGU1S0b8i3Gvl2HhhvgJaiSNKjunERIKjwJFaHkIEjzqAzmH-QCcUtA7dLZfOVhfn9VDiOaWZpCTxqWkOzKjhkmxhVTy7eHwWS9pkPSByAFISDw"
-                alt="IFDC Logo"
-                className="login-brand-logo"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  const fallback = document.getElementById('logo-fallback');
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              <div
-                id="logo-fallback"
-                style={{ display: 'none' }}
-                className="items-center gap-2 mb-3"
-              >
-                <div className="w-8 h-8 rounded-lg bg-[#FFE100] flex items-center justify-center text-[#0B3D6E] font-bold">
-                  <span className="material-symbols-outlined text-[20px]">shield</span>
+        <div className="auth-brand-top">
+          <span className="auth-logo-chip">
+            <img src={logo} alt="IFDC" />
+          </span>
+          <span className="auth-brand-tag">Admin Portal</span>
+        </div>
+
+        <div className="auth-brand-body">
+          <h1>
+            Keeping every child <span>safe online</span> starts here.
+          </h1>
+          <p>
+            Manage the people, programmes and resources behind the International Foundation for Digital Child.
+          </p>
+
+          <ul className="auth-highlights">
+            {HIGHLIGHTS.map((item) => (
+              <li key={item.title}>
+                <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.text}</small>
                 </div>
-                <span className="text-2xl font-bold text-[#0B3D6E] tracking-tight">IFDC.</span>
-              </div>
-            </div>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-            <div className="login-portal-pill">
-              <span className="material-symbols-outlined text-[14px]">shield</span>
-              <span>Management Portal</span>
-            </div>
+        <p className="auth-brand-foot">© {new Date().getFullYear()} IFDC · Sri Lanka</p>
+      </aside>
 
-            <h1 className="login-title">Welcome Back</h1>
-            <p className="login-description">
-              Sign in with your administrative credentials to manage child safety initiatives, resources, and community networks.
+      {/* ── Form panel ── */}
+      <main className="auth-main">
+        <div className="auth-card">
+          <img src={logo} alt="IFDC" className="auth-card-logo" />
+
+          <div className="auth-heading">
+            <p className="auth-eyebrow">
+              <span className="auth-dot" aria-hidden="true" />
+              Authorised staff only
             </p>
+            <h2>Sign in</h2>
+            <p>Use your IFDC staff email and password to continue.</p>
           </div>
 
+          {errorMessage && (
+            <div className="auth-alert" role="alert">
+              <span className="material-symbols-outlined" aria-hidden="true">error</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-
-
-          {/* Form */}
-          <form className="login-form" onSubmit={handleSubmit}>
-            {errorMessage && (
-              <div className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">error</span>
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Work Email */}
-            <div className="form-group">
-              <div className="form-label-row">
-                <label htmlFor="workEmail">Work Email</label>
-                <span className="role-tag-badge">{selectedRole.roleTag}</span>
-              </div>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined input-icon">mail</span>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate={false}>
+            <div className="auth-field">
+              <label htmlFor="loginEmail">Email address</label>
+              <div className="auth-input">
+                <span className="material-symbols-outlined" aria-hidden="true">mail</span>
                 <input
-                  id="workEmail"
+                  id="loginEmail"
                   type="email"
+                  autoComplete="username"
                   required
-                  className="login-input"
-                  placeholder="admin@ifdchild.org"
+                  autoFocus
+                  placeholder="you@ifdchild.org"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Password */}
-            <div className="form-group">
-              <div className="form-label-row">
-                <label htmlFor="adminPassword">Password</label>
+            <div className="auth-field">
+              <div className="auth-label-row">
+                <label htmlFor="loginPassword">Password</label>
+                <button
+                  type="button"
+                  className="auth-link"
+                  onClick={() => setShowForgotHelp((open) => !open)}
+                  aria-expanded={showForgotHelp}
+                >
+                  Forgot password?
+                </button>
               </div>
-              <div className="input-wrapper">
-                <span className="material-symbols-outlined input-icon">lock</span>
+              <div className="auth-input">
+                <span className="material-symbols-outlined" aria-hidden="true">lock</span>
                 <input
-                  id="adminPassword"
+                  id="loginPassword"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   required
-                  className="login-input has-toggle"
-                  placeholder="••••••••••••"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyUp={trackCapsLock}
+                  onKeyDown={trackCapsLock}
                 />
                 <button
                   type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  title={showPassword ? 'Hide password' : 'Show password'}
-                  aria-label="Toggle password view"
+                  className="auth-eye"
+                  onClick={() => setShowPassword((show) => !show)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <span className="material-symbols-outlined text-[18px]">
+                  <span className="material-symbols-outlined">
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </button>
               </div>
+              {capsLockOn && (
+                <p className="auth-hint">
+                  <span className="material-symbols-outlined" aria-hidden="true">keyboard_capslock</span>
+                  Caps Lock is on
+                </p>
+              )}
+              {showForgotHelp && (
+                <p className="auth-help">
+                  Password resets are handled by your system administrator. Email{' '}
+                  <a href="mailto:ifdchild@gmail.com">ifdchild@gmail.com</a> from your staff address.
+                </p>
+              )}
             </div>
 
-            {/* Remember & Forgot Password */}
-            <div className="form-options-row">
-              <label className="remember-label">
-                <input
-                  type="checkbox"
-                  checked={rememberDevice}
-                  onChange={(e) => setRememberDevice(e.target.checked)}
-                />
-                <span>Remember this device</span>
-              </label>
-              <a
-                href="#forgot"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('For password resets, contact IT Security Operations at support@ifdchild.org');
-                }}
-                className="forgot-link"
-              >
-                Forgot password?
-              </a>
-            </div>
+            <label className="auth-check">
+              <input
+                type="checkbox"
+                checked={rememberDevice}
+                onChange={(e) => setRememberDevice(e.target.checked)}
+              />
+              <span>
+                Keep me signed in for 30 days
+                <small>Only on a private device</small>
+              </span>
+            </label>
 
-            {/* 2FA Notice Box */}
-            <div className="two-factor-notice">
-              <span className="material-symbols-outlined">verified_user</span>
-              <p>
-                Hardware security key or authenticator app will be required for elevated administrative roles.
-              </p>
-            </div>
-
-            {/* Primary CTA Button */}
-            <button
-              id="submitBtn"
-              type="submit"
-              disabled={isSubmitting}
-              className="login-submit-btn"
-            >
+            <button type="submit" className="auth-submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <span className="material-symbols-outlined spin-icon text-[20px]">sync</span>
-                  <span>Authenticating...</span>
+                  <span className="material-symbols-outlined auth-spin" aria-hidden="true">progress_activity</span>
+                  Signing in…
                 </>
               ) : (
                 <>
-                  <span>Sign In to Admin Portal</span>
-                  <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  Sign in
+                  <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
                 </>
               )}
             </button>
           </form>
-        </div>
 
-        {/* Trust & Security Footer */}
-        <footer className="login-footer">
-          <div className="ssl-badge">
-            <span className="material-symbols-outlined">lock_clock</span>
-            <span>Secure 256-bit SSL Encrypted Connection</span>
-          </div>
-
-          <div className="login-quick-links">
-            <a href="#security" onClick={(e) => e.preventDefault()}>Security Policy</a>
-            <span>•</span>
-            <a href="#helpdesk" onClick={(e) => e.preventDefault()}>IT Helpdesk Support</a>
-            <span>•</span>
-            <a href="#terms" onClick={(e) => e.preventDefault()}>Terms of Access</a>
-          </div>
-
-          <p className="login-copyright">
-            © 2024 International Foundation for Digital Child (IFDC). All rights reserved.
+          <p className="auth-secure">
+            <span className="material-symbols-outlined" aria-hidden="true">shield_lock</span>
+            Repeated failed attempts temporarily lock sign-in.
           </p>
-        </footer>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

@@ -12,13 +12,14 @@ import VolunteerReview from './pages/VolunteerReview'
 import ResourceManagement from './pages/ResourceManagement'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import RequireAuth from './components/RequireAuth'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/" element={<Layout />}>
+      <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Overview />} />
         <Route path="blogs" element={<ManageBlogs />} />
         <Route path="blogs/new" element={<AddBlogPost />} />

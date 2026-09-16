@@ -1,49 +1,66 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { clearSession } from '../services/authService';
+import useSessionUser, { displayNameFor, initialsFor } from '../hooks/useSessionUser';
+import logo from '../assets/ifdc-logo.png';
+
+const NAV_ITEMS = [
+  { to: '/', icon: 'dashboard', label: 'Dashboard', end: true },
+  { to: '/blogs', icon: 'article', label: 'Blogs & News' },
+  { to: '/volunteers', icon: 'group', label: 'Volunteers' },
+  { to: '/partners', icon: 'handshake', label: 'Partners' },
+  { to: '/resources', icon: 'folder_shared', label: 'Resources' }
+];
+
+const linkClass = ({ isActive }) => (isActive ? 'nav-link active' : 'nav-link');
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+  const user = useSessionUser();
+
+  const handleLogout = () => {
+    clearSession();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <nav className="sidebar">
       <div className="sidebar-header">
-        <span className="sidebar-logo">IFDC.</span>
+        <NavLink to="/" className="sidebar-brand" aria-label="IFDC Admin dashboard home">
+          <span className="sidebar-logo-chip">
+            <img src={logo} alt="IFDC" />
+          </span>
+          <span className="sidebar-brand-tag">Admin Portal</span>
+        </NavLink>
+
         <div className="sidebar-user">
-          <div className="sidebar-avatar">A</div>
-          <div>
-            <h2 className="sidebar-user-name">IFDC Admin</h2>
-            <p className="sidebar-user-role">Management Portal</p>
+          <div className="sidebar-avatar" aria-hidden="true">{initialsFor(user)}</div>
+          <div className="sidebar-user-text">
+            <h2 className="sidebar-user-name" title={displayNameFor(user)}>{displayNameFor(user)}</h2>
+            <p className="sidebar-user-role" title={user?.email}>{user?.role || 'Management Portal'}</p>
           </div>
         </div>
       </div>
-      
+
       <div className="sidebar-nav">
-        <NavLink to="/" className={({isActive}) => isActive ? "nav-link active" : "nav-link"} end>
-          <span className="material-symbols-outlined fill-icon">dashboard</span>
-          <span>Dashboard</span>
-        </NavLink>
-        <NavLink to="/blogs" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <span className="material-symbols-outlined">article</span>
-          <span>Blogs & News</span>
-        </NavLink>
-        <NavLink to="/volunteers" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <span className="material-symbols-outlined">group</span>
-          <span>Volunteers</span>
-        </NavLink>
-        <NavLink to="/partners" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <span className="material-symbols-outlined">handshake</span>
-          <span>Partners</span>
-        </NavLink>
-        <NavLink to="/resources" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-          <span className="material-symbols-outlined">folder_shared</span>
-          <span>Resources</span>
-        </NavLink>
-        <NavLink to="/settings" className={({isActive}) => isActive ? "nav-link active mt-auto" : "nav-link mt-auto"}>
-          <span className="material-symbols-outlined">settings</span>
-          <span>Settings</span>
-        </NavLink>
-        <NavLink to="/login" className="nav-link" style={{ marginBottom: '0.75rem', opacity: 0.85 }}>
-          <span className="material-symbols-outlined">logout</span>
-          <span>Logout</span>
-        </NavLink>
+        <p className="sidebar-section-label">Menu</p>
+        {NAV_ITEMS.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
+            <span className="material-symbols-outlined">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+
+        <div className="sidebar-bottom">
+          <NavLink to="/settings" className={linkClass}>
+            <span className="material-symbols-outlined">settings</span>
+            <span>Settings</span>
+          </NavLink>
+          <button type="button" onClick={handleLogout} className="nav-link nav-link-button">
+            <span className="material-symbols-outlined">logout</span>
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
     </nav>
   );
