@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./screens.css";
-import { getBlogs } from "../services/blogService";
+import { deleteBlog, getBlogs } from "../services/blogService";
+import { MEDIA_URL } from "../services/apiConfig";
 
 const ManageBlogs = () => {
   const navigate = useNavigate();
@@ -18,6 +19,35 @@ const ManageBlogs = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+
+
+  // ==============================
+  // DELETE BLOG
+  // ==============================
+
+  const handleDelete = async (post) => {
+    const confirmed = window.confirm(
+      `Delete "${post.title}"?
+
+This permanently removes the post from the website and cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(post.id);
+
+    try {
+      await deleteBlog(post.id);
+      setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    } catch (err) {
+      alert(err.message || "Failed to delete blog post");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
 
   // ==============================
@@ -76,7 +106,7 @@ const ManageBlogs = () => {
       return image;
     }
 
-    return `http://localhost:8000${image}`;
+    return `${MEDIA_URL}${image}`;
   };
 
 
@@ -165,7 +195,7 @@ const ManageBlogs = () => {
 
         <div>
           <h1 className="screen-title">
-            Manage Blogs & News
+            Manage Blogs
           </h1>
 
           <p className="screen-subtitle">
@@ -615,21 +645,18 @@ const ManageBlogs = () => {
 
                         <button
                           className="icon-action danger"
-                          title={
-                            post.status ===
-                              "published"
-                              ? "Unpublish"
-                              : "Delete"
-                          }
+                          title="Delete"
+                          aria-label={`Delete ${post.title}`}
+                          disabled={deletingId === post.id}
+                          onClick={() => handleDelete(post)}
+                          style={{
+                            opacity: deletingId === post.id ? 0.5 : 1,
+                            cursor: deletingId === post.id ? "progress" : "pointer",
+                          }}
                         >
 
                           <span className="material-symbols-outlined">
-
-                            {post.status ===
-                              "published"
-                              ? "unpublished"
-                              : "delete"}
-
+                            {deletingId === post.id ? "hourglass_empty" : "delete"}
                           </span>
 
                         </button>

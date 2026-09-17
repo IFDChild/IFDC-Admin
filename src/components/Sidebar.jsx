@@ -6,9 +6,10 @@ import logo from '../assets/ifdc-logo.png';
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'Dashboard', end: true },
-  { to: '/blogs', icon: 'article', label: 'Blogs & News' },
+  { to: '/blogs', icon: 'article', label: 'Blogs' },
+  { to: '/news', icon: 'newspaper', label: 'News' },
   { to: '/volunteers', icon: 'group', label: 'Volunteers' },
-  { to: '/partners', icon: 'handshake', label: 'Partners' },
+  { to: '/donations', icon: 'volunteer_activism', label: 'Donation Requests' },
   { to: '/resources', icon: 'folder_shared', label: 'Resources' }
 ];
 

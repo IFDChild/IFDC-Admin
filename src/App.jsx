@@ -4,11 +4,12 @@ import Layout from './components/Layout'
 import Overview from './pages/Overview'
 import ManageBlogs from './pages/ManageBlogs'
 import ManageVolunteers from './pages/ManageVolunteers'
-import ManagePartners from './pages/ManagePartners'
 import Settings from './pages/Settings'
 import AddBlogPost from './pages/AddBlogPost'
-import AddPartner from './pages/AddPartner'
 import VolunteerReview from './pages/VolunteerReview'
+import ManageNews from './pages/ManageNews'
+import AddNews from './pages/AddNews'
+import DonationRequests from './pages/DonationRequests'
 import ResourceManagement from './pages/ResourceManagement'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -25,8 +26,9 @@ function App() {
         <Route path="blogs/new" element={<AddBlogPost />} />
         <Route path="volunteers" element={<ManageVolunteers />} />
         <Route path="volunteers/review/:id" element={<VolunteerReview />} />
-        <Route path="partners" element={<ManagePartners />} />
-        <Route path="partners/new" element={<AddPartner />} />
+        <Route path="news" element={<ManageNews />} />
+        <Route path="news/new" element={<AddNews />} />
+        <Route path="donations" element={<DonationRequests />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="settings" element={<Settings />} />
       </Route>

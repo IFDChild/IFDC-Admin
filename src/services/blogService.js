@@ -1,4 +1,5 @@
 import { API_URL } from "./apiConfig";
+import { authHeaders } from "./authService";
 
 export const uploadBlogImage = async (file) => {
 
@@ -10,6 +11,7 @@ export const uploadBlogImage = async (file) => {
         `${API_URL}/uploads/image`,
         {
             method: "POST",
+            headers: { ...authHeaders() },
             body: formData,
         }
     );
@@ -28,7 +30,9 @@ export const uploadBlogImage = async (file) => {
     return await response.json();
 };
 export const getBlogs = async () => {
-    const response = await fetch(`${API_URL}/blogs`);
+    const response = await fetch(`${API_URL}/blogs/manage`, {
+        headers: { ...authHeaders() },
+    });
 
     if (!response.ok) {
         const errorData = await response.json();
@@ -46,6 +50,7 @@ export const createBlog = async (blogData) => {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            ...authHeaders(),
         },
         body: JSON.stringify(blogData),
     });
@@ -59,4 +64,21 @@ export const createBlog = async (blogData) => {
     }
 
     return await response.json();
+};
+export const deleteBlog = async (id) => {
+    const response = await fetch(`${API_URL}/blogs/${id}`, {
+        method: "DELETE",
+        headers: { ...authHeaders() },
+    });
+
+    if (!response.ok) {
+        let message = "Failed to delete blog post";
+        try {
+            const errorData = await response.json();
+            if (typeof errorData.detail === "string") message = errorData.detail;
+        } catch {
+            // keep default message
+        }
+        throw new Error(message);
+    }
 };

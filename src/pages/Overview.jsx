@@ -1,535 +1,408 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import './screens.css';
-import { createBlog, uploadBlogImage } from '../services/blogService';
+import './Overview.css';
+import { getBlogs } from '../services/blogService';
+import { getAllNews } from '../services/newsService';
+import { getVolunteers } from '../services/volunteerService';
+import { getResources } from '../services/resourceService';
+import { getContactMessages, getPartnerInquiries } from '../services/inboxService';
+import { getDonationRequests } from '../services/donationService';
+import useSessionUser, { displayNameFor } from '../hooks/useSessionUser';
 
-const BLOG_CATEGORIES = ['News', 'Education', 'Safety Alerts', 'Events', 'Community'];
+// The API stores naive UTC timestamps.
+const toDate = (value) => {
+  if (!value) return null;
+  const date = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const timeAgo = (value) => {
+  const date = toDate(value);
+  if (!date) return '';
+  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const units = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+  for (const [unit, size] of units) {
+    const n = Math.floor(seconds / size);
+    if (n >= 1) return `${n} ${unit}${n > 1 ? 's' : ''} ago`;
+  }
+  return 'just now';
+};
+
+const greeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const SOURCES = {
+  blogs: getBlogs,
+  news: getAllNews,
+  volunteers: () => getVolunteers(),
+  resources: getResources,
+  contact: getContactMessages,
+  partners: getPartnerInquiries,
+  donations: getDonationRequests
+};
+
+const QUICK_ACTIONS = [
+  { to: '/news/new', icon: 'newspaper', label: 'Add News' },
+  { to: '/blogs/new', icon: 'edit_note', label: 'Write Blog' },
+  { to: '/resources', icon: 'upload_file', label: 'Upload Resource' },
+  { to: '/volunteers', icon: 'how_to_reg', label: 'Review Volunteers' }
+];
+
+function StatTile({ icon, label, value, detail, tone, to, loading }) {
+  const body = (
+    <>
+      <div className="ov-stat-top">
+        <span className={`ov-stat-icon ${tone}`}>
+          <span className="material-symbols-outlined">{icon}</span>
+        </span>
+        {to && <span className="material-symbols-outlined ov-stat-arrow" aria-hidden="true">arrow_outward</span>}
+      </div>
+      <p className="ov-stat-label">{label}</p>
+      <p className="ov-stat-value">{loading ? <span className="ov-skeleton ov-skeleton-number" /> : value}</p>
+      <p className="ov-stat-detail">{loading ? <span className="ov-skeleton ov-skeleton-text" /> : detail}</p>
+    </>
+  );
+
+  return to ? <Link to={to} className="ov-stat">{body}</Link> : <div className="ov-stat">{body}</div>;
+}
+
+function Panel({ title, icon, action, children }) {
+  return (
+    <section className="ov-panel">
+      <header className="ov-panel-head">
+        <h2>
+          <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
+          {title}
+        </h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyRow({ icon, text }) {
+  return (
+    <div className="ov-empty">
+      <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
+      <p>{text}</p>
+    </div>
+  );
+}
 
 const Overview = () => {
-  // ── Blog modal state ────────────────────────────────────────────────────
-  const [blogModalOpen, setBlogModalOpen] = useState(false);
-  const [blogTitle, setBlogTitle]         = useState('');
-  const [blogBody, setBlogBody]           = useState('');
-  const [blogExcerpt, setBlogExcerpt]     = useState('');
-  const [blogCategories, setBlogCategories] = useState([]);
-  const [blogStatus, setBlogStatus]       = useState('Draft');
-  const [featuredImage, setFeaturedImage] = useState(null);
-  const [imagePreview, setImagePreview]   = useState('');
-  const [loading, setLoading]             = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [toastMsg, setToastMsg]           = useState('');
+  const user = useSessionUser();
+  const [data, setData] = useState({});
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3500);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    const keys = Object.keys(SOURCES);
 
-  const resetModal = () => {
-    setBlogTitle('');
-    setBlogBody('');
-    setBlogExcerpt('');
-    setBlogCategories([]);
-    setBlogStatus('Draft');
-    setFeaturedImage(null);
-    setImagePreview('');
-    setLoading(false);
-    setUploadingImage(false);
-  };
-
-  const openModal  = () => { resetModal(); setBlogModalOpen(true); };
-  const closeModal = () => { resetModal(); setBlogModalOpen(false); };
-
-  const toggleCategory = (cat) =>
-    setBlogCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
-    if (!allowed.includes(file.type)) { alert('Please select a PNG, JPG, GIF, or WEBP image.'); return; }
-    if (file.size > 5 * 1024 * 1024) { alert('Image size must be less than 5MB.'); return; }
-    setFeaturedImage(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  const handleSubmit = async (publish) => {
-    if (!blogTitle.trim()) { alert('Please enter a blog title.'); return; }
-    if (!blogBody.trim())  { alert('Please enter blog content.');  return; }
-    try {
-      setLoading(true);
-      let featuredImageUrl = null;
-      if (featuredImage) {
-        setUploadingImage(true);
-        const uploadResponse = await uploadBlogImage(featuredImage);
-        featuredImageUrl = uploadResponse.url;
-        setUploadingImage(false);
-      }
-      const blogData = {
-        title:          blogTitle.trim(),
-        excerpt:        blogExcerpt.trim(),
-        content:        blogBody.trim(),
-        featured_image: featuredImageUrl,
-        author:         'IFDC',
-        category:       blogCategories.length > 0 ? blogCategories[0] : null,
-        status:         publish ? 'published' : 'draft',
-      };
-      await createBlog(blogData);
-      showToast(publish ? 'Blog published successfully!' : 'Blog saved as draft!');
-      closeModal();
-    } catch (error) {
-      setUploadingImage(false);
-      alert(error.message || 'Failed to create blog');
-    } finally {
+    Promise.allSettled(keys.map((key) => SOURCES[key]())).then((results) => {
+      if (cancelled) return;
+      const nextData = {};
+      const nextErrors = {};
+      results.forEach((result, index) => {
+        const key = keys[index];
+        if (result.status === 'fulfilled') {
+          nextData[key] = Array.isArray(result.value) ? result.value : [];
+        } else {
+          nextData[key] = [];
+          nextErrors[key] = result.reason?.message || 'Failed to load';
+        }
+      });
+      setData(nextData);
+      setErrors(nextErrors);
       setLoading(false);
-    }
-  };
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const { blogs = [], news = [], volunteers = [], resources = [], contact = [], partners = [], donations = [] } = data;
+    const count = (list, predicate) => list.filter(predicate).length;
+    return {
+      newsPublished: count(news, (n) => n.status === 'published'),
+      newsDrafts: count(news, (n) => n.status !== 'published'),
+      blogsPublished: count(blogs, (b) => b.status === 'published'),
+      blogDrafts: count(blogs, (b) => b.status !== 'published'),
+      volunteersTotal: volunteers.length,
+      volunteersPending: count(volunteers, (v) => v.status === 'new' || v.status === 'reviewing'),
+      volunteersApproved: count(volunteers, (v) => v.status === 'accepted'),
+      resourcesPublished: count(resources, (r) => r.status === 'published'),
+      downloads: resources.reduce((sum, r) => sum + (r.downloads || 0), 0),
+      newMessages: count(contact, (m) => m.status === 'new'),
+      newInquiries: count(partners, (p) => p.status === 'new'),
+      newDonations: count(donations, (d) => d.status === 'new')
+    };
+  }, [data]);
+
+  const pendingVolunteers = useMemo(
+    () => (data.volunteers || [])
+      .filter((v) => v.status === 'new' || v.status === 'reviewing')
+      .sort((a, b) => (toDate(a.created_at) || 0) - (toDate(b.created_at) || 0))
+      .slice(0, 5),
+    [data.volunteers]
+  );
+
+  const inbox = useMemo(() => {
+    const messages = (data.contact || []).map((m) => ({
+      key: `contact-${m.id}`, icon: 'mail', title: m.subject, who: m.name, status: m.status, at: m.created_at, kind: 'Contact'
+    }));
+    const inquiries = (data.partners || []).map((p) => ({
+      key: `partner-${p.id}`, icon: 'handshake', title: p.partnership_type, who: `${p.contact_person} · ${p.organization_name}`, status: p.status, at: p.created_at, kind: 'Partnership'
+    }));
+    const donationOffers = (data.donations || []).map((d) => ({
+      key: `donation-${d.id}`, icon: 'volunteer_activism', title: 'Willing to donate', who: d.name ? `${d.name} · ${d.email}` : d.email, status: d.status, at: d.created_at, kind: 'Donation'
+    }));
+    return [...donationOffers, ...messages, ...inquiries]
+      .sort((a, b) => (toDate(b.at) || 0) - (toDate(a.at) || 0))
+      .slice(0, 5);
+  }, [data.contact, data.partners, data.donations]);
+
+  const activity = useMemo(() => {
+    const items = [
+      ...(data.news || []).map((n) => ({
+        key: `news-${n.id}`, icon: 'newspaper', tone: 'navy',
+        text: <>News <strong>“{n.title}”</strong> {n.status === 'published' ? 'published' : 'saved as draft'}</>,
+        at: n.status === 'published' ? n.published_at : n.created_at
+      })),
+      ...(data.blogs || []).map((b) => ({
+        key: `blog-${b.id}`, icon: 'edit_note', tone: 'yellow',
+        text: <>Blog <strong>“{b.title}”</strong> {b.status === 'published' ? 'published' : 'saved as draft'}{b.author ? ` · ${b.author}` : ''}</>,
+        at: b.status === 'published' ? b.published_at : b.created_at
+      })),
+      ...(data.volunteers || []).map((v) => ({
+        key: `vol-${v.id}`, icon: 'person_add', tone: 'green',
+        text: <>Volunteer application from <strong>{v.first_name} {v.last_name}</strong></>,
+        at: v.created_at
+      })),
+      ...(data.resources || []).map((r) => ({
+        key: `res-${r.id}`, icon: 'description', tone: 'blue',
+        text: <>Resource <strong>“{r.title}”</strong> added for {r.audience}</>,
+        at: r.created_at
+      }))
+    ];
+    return items
+      .filter((item) => toDate(item.at))
+      .sort((a, b) => toDate(b.at) - toDate(a.at))
+      .slice(0, 8);
+  }, [data]);
+
+  const audiences = useMemo(() => {
+    const counts = {};
+    (data.resources || []).forEach((r) => {
+      counts[r.audience] = (counts[r.audience] || 0) + 1;
+    });
+    const max = Math.max(1, ...Object.values(counts));
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([audience, n]) => ({ audience, n, pct: Math.round((n / max) * 100) }));
+  }, [data.resources]);
+
+  const topDownloads = useMemo(
+    () => [...(data.resources || [])]
+      .filter((r) => (r.downloads || 0) > 0)
+      .sort((a, b) => b.downloads - a.downloads)
+      .slice(0, 5),
+    [data.resources]
+  );
+
+  const failedSources = Object.keys(errors);
+  const attentionCount = stats.volunteersPending + stats.newMessages + stats.newInquiries + stats.newDonations;
 
   return (
-    <div className="page-container">
+    <div className="page-container ov">
+      {/* ── Welcome banner ── */}
+      <section className="ov-hero">
+        <div className="ov-hero-text">
+          <p className="ov-hero-date">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          </p>
+          <h1>{greeting()}, {displayNameFor(user)}</h1>
+          <p className="ov-hero-sub">
+            {loading
+              ? 'Loading the latest from the IFDC website…'
+              : attentionCount > 0
+                ? `${attentionCount} ${attentionCount === 1 ? 'item needs' : 'items need'} your attention today.`
+                : 'You’re all caught up — nothing is waiting for review.'}
+          </p>
+        </div>
+        <nav className="ov-actions" aria-label="Quick actions">
+          {QUICK_ACTIONS.map((action) => (
+            <Link key={action.to + action.label} to={action.to} className="ov-action">
+              <span className="material-symbols-outlined" aria-hidden="true">{action.icon}</span>
+              {action.label}
+            </Link>
+          ))}
+        </nav>
+      </section>
 
-      {/* ── Toast ── */}
-      {toastMsg && (
-        <div style={{
-          position: 'fixed', top: '80px', right: '24px', zIndex: 9999,
-          background: '#0B3D6E', color: '#fff', padding: '10px 18px',
-          borderRadius: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px',
-        }}>
-          <span className="material-symbols-outlined" style={{ color: '#FFE100', fontSize: '20px' }}>check_circle</span>
-          {toastMsg}
+      {failedSources.length > 0 && !loading && (
+        <div className="ov-warning" role="status">
+          <span className="material-symbols-outlined" aria-hidden="true">warning</span>
+          Some figures couldn’t be loaded ({failedSources.join(', ')}). Check the API server and refresh.
         </div>
       )}
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Overview</h1>
-          <p className="page-subtitle">Here's what's happening at IFDC today.</p>
-        </div>
-        <div className="text-right">
-          <p className="page-date">Oct 24, 2024</p>
-        </div>
+      {/* ── Stats ── */}
+      <div className="ov-stats">
+        <StatTile
+          icon="newspaper" tone="navy" label="News articles" to="/news" loading={loading}
+          value={stats.newsPublished}
+          detail={stats.newsDrafts ? `${stats.newsDrafts} draft${stats.newsDrafts > 1 ? 's' : ''}` : 'All published'}
+        />
+        <StatTile
+          icon="edit_note" tone="yellow" label="Blog posts" to="/blogs" loading={loading}
+          value={stats.blogsPublished}
+          detail={stats.blogDrafts ? `${stats.blogDrafts} draft${stats.blogDrafts > 1 ? 's' : ''}` : 'All published'}
+        />
+        <StatTile
+          icon="group" tone="green" label="Volunteers" to="/volunteers" loading={loading}
+          value={stats.volunteersTotal}
+          detail={stats.volunteersPending ? `${stats.volunteersPending} awaiting review` : `${stats.volunteersApproved} approved`}
+        />
+        <StatTile
+          icon="folder_shared" tone="blue" label="Resources" to="/resources" loading={loading}
+          value={stats.resourcesPublished}
+          detail={`${stats.downloads.toLocaleString()} download${stats.downloads === 1 ? '' : 's'}`}
+        />
+        <StatTile
+          icon="inbox" tone="red" label="New enquiries" to="/donations" loading={loading}
+          value={stats.newMessages + stats.newInquiries + stats.newDonations}
+          detail={`${stats.newDonations} donation · ${stats.newMessages} contact · ${stats.newInquiries} partner`}
+        />
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-bg-blob primary"></div>
-          <div className="stat-content">
-            <div className="stat-header">
-              <span className="stat-label">Total Blogs</span>
-              <div className="stat-icon primary">
-                <span className="material-symbols-outlined">article</span>
-              </div>
-            </div>
-            <div className="stat-value">24</div>
-            <div className="stat-caption primary">+3 this week</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-bg-blob secondary"></div>
-          <div className="stat-content">
-            <div className="stat-header">
-              <span className="stat-label">Pending Volunteers</span>
-              <div className="stat-icon secondary">
-                <span className="material-symbols-outlined">group_add</span>
-              </div>
-            </div>
-            <div className="stat-value">12</div>
-            <div className="stat-caption error">
-              <span className="material-symbols-outlined" style={{fontSize: '14px'}}>warning</span> Action needed
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-bg-blob tertiary"></div>
-          <div className="stat-content">
-            <div className="stat-header">
-              <span className="stat-label">Active Partners</span>
-              <div className="stat-icon tertiary">
-                <span className="material-symbols-outlined">handshake</span>
-              </div>
-            </div>
-            <div className="stat-value">8</div>
-            <div className="stat-caption outline">Stable across all regions</div>
-          </div>
-        </div>
-
-        <div className="stat-card dark">
-          <div className="stat-bg-blob dark"></div>
-          <div className="stat-content">
-            <div className="stat-header">
-              <span className="stat-label">Total Reach</span>
-              <div className="stat-icon dark">
-                <span className="material-symbols-outlined">public</span>
-              </div>
-            </div>
-            <div className="stat-value">2.4M</div>
-            <div className="stat-caption inverse">+12% from last quarter</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="content-grid">
-        <div className="card">
-          <div style={{padding: '1.5rem'}}>
-            <h2 className="section-title">Recent Activity</h2>
-            <div className="activity-list">
-              <div className="activity-item">
-                <div className="activity-icon-container primary">
-                  <span className="material-symbols-outlined">edit_document</span>
-                </div>
-                <div className="activity-text">
-                  <p className="activity-title">New blog post <strong>"Digital Safety in 2024"</strong> published.</p>
-                  <p className="activity-time">2 hours ago • by Sarah J.</p>
-                </div>
-              </div>
-              <div className="divider"></div>
-              <div className="activity-item">
-                <div className="activity-icon-container secondary">
-                  <span className="material-symbols-outlined">verified_user</span>
-                </div>
-                <div className="activity-text">
-                  <p className="activity-title">Volunteer application for <strong>Michael Chen</strong> approved.</p>
-                  <p className="activity-time">5 hours ago • System</p>
-                </div>
-              </div>
-              <div className="divider"></div>
-              <div className="activity-item">
-                <div className="activity-icon-container neutral">
-                  <span className="material-symbols-outlined">settings_backup_restore</span>
-                </div>
-                <div className="activity-text">
-                  <p className="activity-title">System backup completed successfully.</p>
-                  <p className="activity-time">Yesterday • Automated</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card shortcuts-card">
-          <h2 className="section-title" style={{marginBottom: '0'}}>Management Shortcuts</h2>
-          <button className="btn btn-primary" onClick={openModal}>
-            <span className="material-symbols-outlined">add_circle</span>
-            Create Blog Post
-          </button>
-          <button className="btn btn-secondary">
-            <span className="material-symbols-outlined">how_to_reg</span>
-            Verify Volunteer
-          </button>
-        </div>
-      </div>
-
-      {/* ── Create Blog Post Modal ─────────────────────────────────────────── */}
-      {blogModalOpen && (
-        <div
-          onClick={closeModal}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--surface, #fff)',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '800px',
-              maxHeight: '90vh',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            }}
+      {/* ── Main grid ── */}
+      <div className="ov-grid">
+        <div className="ov-col">
+          <Panel
+            title="Volunteers awaiting review"
+            icon="how_to_reg"
+            action={<Link to="/volunteers" className="ov-link">View all</Link>}
           >
-            {/* Header */}
-            <div style={{
-              background: '#0B3D6E', padding: '20px 24px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="material-symbols-outlined" style={{ color: '#FFE100', fontSize: '26px' }}>edit_note</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#fff' }}>Create Blog Post</h3>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#D4E3FF' }}>Publish or save a new blog post to IFDC</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                style={{
-                  background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '8px',
-                  width: '34px', height: '34px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
-              </button>
-            </div>
-
-            {/* Body */}
-            <div style={{ overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: '20px' }}>
-
-                {/* LEFT */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                  {/* Title */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--on-surface-variant, #555)', marginBottom: '6px' }}>
-                      Post Title *
-                    </label>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={blogTitle}
-                      onChange={(e) => setBlogTitle(e.target.value)}
-                      placeholder="e.g., Digital Safety Tips for 2025"
-                      style={{
-                        width: '100%', padding: '10px 14px', borderRadius: '8px',
-                        border: '1px solid var(--border-subtle, #ddd)', fontSize: '15px',
-                        fontWeight: 600, color: 'var(--on-surface, #111)',
-                        background: 'var(--surface-container-lowest, #fafafa)',
-                        outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-
-                  {/* Content */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--on-surface-variant, #555)', marginBottom: '6px' }}>
-                      Content *
-                    </label>
-                    {/* Toolbar */}
-                    <div style={{
-                      background: 'var(--surface-container-low, #f5f5f5)',
-                      borderRadius: '8px 8px 0 0',
-                      border: '1px solid var(--border-subtle, #ddd)', borderBottom: 'none',
-                      padding: '6px 8px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px',
-                    }}>
-                      {[
-                        { icon: 'format_bold', title: 'Bold' },
-                        { icon: 'format_italic', title: 'Italic' },
-                        { icon: 'format_underlined', title: 'Underline' },
-                        null,
-                        { icon: 'format_list_bulleted', title: 'Bullet List' },
-                        { icon: 'format_list_numbered', title: 'Numbered List' },
-                        null,
-                        { icon: 'link', title: 'Link' },
-                      ].map((item, i) =>
-                        item === null
-                          ? <div key={i} style={{ width: '1px', height: '20px', background: 'var(--border-subtle, #ddd)', margin: '0 4px' }} />
-                          : <button key={item.icon} title={item.title} type="button"
-                              style={{ padding: '5px', borderRadius: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface-variant, #555)', display: 'flex' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{item.icon}</span>
-                            </button>
-                      )}
+            {loading ? (
+              <div className="ov-list-skeleton"><span /><span /><span /></div>
+            ) : pendingVolunteers.length === 0 ? (
+              <EmptyRow icon="task_alt" text="No applications waiting. New applications from the website will appear here." />
+            ) : (
+              <ul className="ov-list">
+                {pendingVolunteers.map((v) => (
+                  <li key={v.id}>
+                    <span className="ov-avatar">{`${v.first_name?.[0] || ''}${v.last_name?.[0] || ''}`.toUpperCase()}</span>
+                    <div className="ov-list-main">
+                      <p className="ov-list-title">{v.first_name} {v.last_name}</p>
+                      <p className="ov-list-sub">{(v.interests || []).slice(0, 2).join(', ') || v.describes} · applied {timeAgo(v.created_at)}</p>
                     </div>
-                    <textarea
-                      value={blogBody}
-                      onChange={(e) => setBlogBody(e.target.value)}
-                      placeholder="Start writing your post here..."
-                      style={{
-                        width: '100%', height: '200px', padding: '12px 14px', resize: 'vertical',
-                        borderRadius: '0 0 8px 8px', border: '1px solid var(--border-subtle, #ddd)',
-                        fontSize: '14px', lineHeight: '22px', color: 'var(--on-surface, #111)',
-                        background: 'var(--surface-container-lowest, #fafafa)',
-                        outline: 'none', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
+                    <Link to={`/volunteers/review/${v.id}`} className="ov-pill-btn">Review</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
 
-                  {/* Excerpt */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--on-surface-variant, #555)', marginBottom: '4px' }}>
-                      Excerpt
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--on-surface-variant, #888)', marginBottom: '6px', marginTop: 0 }}>
-                      A short summary used in blog lists and SEO.
-                    </p>
-                    <textarea
-                      value={blogExcerpt}
-                      onChange={(e) => setBlogExcerpt(e.target.value)}
-                      placeholder="Write a brief excerpt..."
-                      style={{
-                        width: '100%', height: '72px', padding: '10px 14px', resize: 'vertical',
-                        borderRadius: '8px', border: '1px solid var(--border-subtle, #ddd)',
-                        fontSize: '13px', color: 'var(--on-surface, #111)',
-                        background: 'var(--surface-container-lowest, #fafafa)',
-                        outline: 'none', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* RIGHT */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                  {/* Publishing Status */}
-                  <div style={{ border: '1px solid var(--border-subtle, #ddd)', borderRadius: '10px', padding: '16px', background: 'var(--surface-container-lowest, #fafafa)' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--on-surface, #111)', borderBottom: '1px solid var(--border-subtle, #eee)', paddingBottom: '10px' }}>
-                      Publishing
-                    </h4>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '12px', color: 'var(--on-surface-variant, #555)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>key</span>Status:
-                      </span>
-                      <select
-                        value={blogStatus}
-                        onChange={(e) => setBlogStatus(e.target.value)}
-                        style={{
-                          padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle, #ddd)',
-                          fontSize: '12px', fontWeight: 700, background: 'var(--surface-container, #f0f0f0)',
-                          color: blogStatus === 'Published' ? '#1a7a4a' : '#B38600',
-                          cursor: 'pointer', outline: 'none',
-                        }}
-                      >
-                        <option>Draft</option>
-                        <option>Published</option>
-                      </select>
+          <Panel title="Recent activity" icon="history">
+            {loading ? (
+              <div className="ov-list-skeleton"><span /><span /><span /><span /></div>
+            ) : activity.length === 0 ? (
+              <EmptyRow icon="history" text="No activity yet." />
+            ) : (
+              <ol className="ov-timeline">
+                {activity.map((item) => (
+                  <li key={item.key}>
+                    <span className={`ov-timeline-icon ${item.tone}`}>
+                      <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
+                    </span>
+                    <div>
+                      <p className="ov-timeline-text">{item.text}</p>
+                      <p className="ov-timeline-time">{timeAgo(item.at)}</p>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: 'var(--on-surface-variant, #555)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>Visibility:
-                      </span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--on-surface, #111)' }}>Public</span>
-                    </div>
-                  </div>
-
-                  {/* Featured Image */}
-                  <div style={{ border: '1px solid var(--border-subtle, #ddd)', borderRadius: '10px', padding: '16px', background: 'var(--surface-container-lowest, #fafafa)' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--on-surface, #111)', borderBottom: '1px solid var(--border-subtle, #eee)', paddingBottom: '10px' }}>
-                      Featured Image
-                    </h4>
-                    <input
-                      type="file"
-                      id="overview-blog-featured-image"
-                      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-                      onChange={handleImageChange}
-                      style={{ display: 'none' }}
-                    />
-                    {imagePreview ? (
-                      <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-subtle, #ddd)' }}>
-                        <img src={imagePreview} alt="Featured preview" style={{ width: '100%', height: '130px', objectFit: 'cover', display: 'block' }} />
-                        <button
-                          type="button"
-                          onClick={() => { setFeaturedImage(null); setImagePreview(''); }}
-                          style={{
-                            position: 'absolute', top: '8px', right: '8px', width: '28px', height: '28px',
-                            borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.65)', color: '#fff',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
-                        </button>
-                        <label htmlFor="overview-blog-featured-image" style={{
-                          display: 'block', padding: '8px', textAlign: 'center', cursor: 'pointer',
-                          fontSize: '12px', fontWeight: 600, color: 'var(--primary, #0B3D6E)',
-                          background: 'var(--surface-container-low, #f5f5f5)',
-                        }}>
-                          Change Image
-                        </label>
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor="overview-blog-featured-image"
-                        style={{
-                          border: '2px dashed var(--outline-variant, #ccc)', borderRadius: '8px', padding: '20px 12px',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          gap: '8px', cursor: 'pointer', background: 'transparent', textAlign: 'center',
-                          transition: 'border-color 0.2s',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary, #0B3D6E)'}
-                        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--outline-variant, #ccc)'}
-                      >
-                        <div style={{
-                          width: '40px', height: '40px', borderRadius: '50%',
-                          background: 'var(--surface-container-high, #e8e8e8)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'var(--on-surface-variant, #555)',
-                        }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>cloud_upload</span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--primary, #0B3D6E)' }}>Click to upload</p>
-                        <p style={{ margin: 0, fontSize: '11px', color: 'var(--on-surface-variant, #888)' }}>PNG, JPG, GIF, WEBP up to 5MB</p>
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Categories */}
-                  <div style={{ border: '1px solid var(--border-subtle, #ddd)', borderRadius: '10px', padding: '16px', background: 'var(--surface-container-lowest, #fafafa)' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--on-surface, #111)', borderBottom: '1px solid var(--border-subtle, #eee)', paddingBottom: '10px' }}>
-                      Categories
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {BLOG_CATEGORIES.map((cat) => (
-                        <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--on-surface, #111)' }}>
-                          <input
-                            type="checkbox"
-                            checked={blogCategories.includes(cat)}
-                            onChange={() => toggleCategory(cat)}
-                            style={{ width: '15px', height: '15px', accentColor: 'var(--primary, #0B3D6E)' }}
-                          />
-                          {cat}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div style={{
-              padding: '16px 24px', borderTop: '1px solid var(--border-subtle, #eee)',
-              display: 'flex', justifyContent: 'flex-end', gap: '10px',
-              flexShrink: 0, background: 'var(--surface-container-low, #f7f7f7)',
-            }}>
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={loading}
-                style={{
-                  padding: '9px 20px', borderRadius: '8px', border: '1px solid var(--border-subtle, #ddd)',
-                  background: 'transparent', color: 'var(--on-surface, #111)', fontSize: '14px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSubmit(false)}
-                disabled={loading}
-                style={{
-                  padding: '9px 20px', borderRadius: '8px',
-                  border: '1px solid #0B3D6E', background: 'transparent',
-                  color: '#0B3D6E', fontSize: '14px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.6 : 1,
-                }}
-              >
-                {loading && !uploadingImage ? 'Saving...' : 'Save Draft'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSubmit(true)}
-                disabled={loading}
-                className="btn btn-primary"
-                style={{ opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>publish</span>
-                {uploadingImage ? 'Uploading Image...' : loading ? 'Publishing...' : 'Publish Now'}
-              </button>
-            </div>
-          </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Panel>
         </div>
-      )}
+
+        <div className="ov-col">
+          <Panel title="Inbox" icon="inbox" action={<Link to="/donations" className="ov-link">Donations</Link>}>
+            {loading ? (
+              <div className="ov-list-skeleton"><span /><span /></div>
+            ) : inbox.length === 0 ? (
+              <EmptyRow icon="mark_email_read" text="No donation requests, contact messages, or partnership enquiries yet." />
+            ) : (
+              <ul className="ov-list">
+                {inbox.map((item) => (
+                  <li key={item.key}>
+                    <span className="ov-avatar soft">
+                      <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
+                    </span>
+                    <div className="ov-list-main">
+                      <p className="ov-list-title">{item.title}</p>
+                      <p className="ov-list-sub">{item.kind} · {item.who} · {timeAgo(item.at)}</p>
+                    </div>
+                    {item.status === 'new' && <span className="ov-new-dot">New</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel
+            title="Resource library"
+            icon="folder_shared"
+            action={<Link to="/resources" className="ov-link">Manage</Link>}
+          >
+            {loading ? (
+              <div className="ov-list-skeleton"><span /><span /><span /></div>
+            ) : audiences.length === 0 ? (
+              <EmptyRow icon="upload_file" text="No resources uploaded yet." />
+            ) : (
+              <>
+                <p className="ov-subhead">By audience</p>
+                <ul className="ov-bars">
+                  {audiences.map((row) => (
+                    <li key={row.audience}>
+                      <div className="ov-bar-label">
+                        <span>{row.audience}</span>
+                        <strong>{row.n}</strong>
+                      </div>
+                      <div className="ov-bar-track"><span style={{ width: `${row.pct}%` }} /></div>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="ov-subhead">Most downloaded</p>
+                {topDownloads.length === 0 ? (
+                  <p className="ov-muted">No downloads recorded yet.</p>
+                ) : (
+                  <ol className="ov-ranked">
+                    {topDownloads.map((r, index) => (
+                      <li key={r.id}>
+                        <span className="ov-rank">{index + 1}</span>
+                        <span className="ov-ranked-title">{r.title}</span>
+                        <span className="ov-ranked-count">{r.downloads}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 };
