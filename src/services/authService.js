@@ -178,3 +178,96 @@ export const changePassword = async (currentPassword, newPassword) => {
         );
     }
 };
+
+/** Rename the signed-in account and refresh the stored session. */
+export const updateProfile = async (fullName) => {
+    const response = await fetch(`${API_URL}/auth/me`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+        },
+        body: JSON.stringify({ full_name: fullName }),
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            await readApiError(response, "Could not save your profile")
+        );
+    }
+
+    const user = await response.json();
+    const session = getSession();
+
+    if (session) {
+        for (const store of stores()) {
+            try {
+                if (store.getItem(SESSION_KEY)) {
+                    store.setItem(SESSION_KEY, JSON.stringify({ ...session, user, email: user.email, role: user.role }));
+                }
+            } catch {
+                // storage unavailable
+            }
+        }
+        notifySessionChange();
+    }
+
+    return user;
+};
+
+export const listTeam = async () => {
+    const response = await fetch(`${API_URL}/auth/users`, {
+        headers: { ...authHeaders() },
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not load team members"));
+    }
+
+    return await response.json();
+};
+
+export const createTeamMember = async (member) => {
+    const response = await fetch(`${API_URL}/auth/users`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+        },
+        body: JSON.stringify(member),
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not add the team member"));
+    }
+
+    return await response.json();
+};
+
+export const updateTeamMember = async (id, changes) => {
+    const response = await fetch(`${API_URL}/auth/users/${id}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+        },
+        body: JSON.stringify(changes),
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not update the team member"));
+    }
+
+    return await response.json();
+};
+
+export const deleteTeamMember = async (id) => {
+    const response = await fetch(`${API_URL}/auth/users/${id}`, {
+        method: "DELETE",
+        headers: { ...authHeaders() },
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiError(response, "Could not remove the team member"));
+    }
+};
