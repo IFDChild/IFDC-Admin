@@ -5,6 +5,8 @@
 /* --- Page Container & Header --- */
 .screen-container {
   max-width: 1200px;
+  width: 100%;
+  min-width: 0;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -210,6 +212,7 @@
 /* --- Table --- */
 .table-card {
   overflow: hidden;
+  min-width: 0;
   box-shadow: 0 4px 6px rgba(11, 61, 110, 0.05);
 }
 .table-header {
@@ -285,6 +288,7 @@
 
 .table-wrapper {
   overflow-x: auto;
+  min-width: 0;
 }
 .data-table {
   width: 100%;
@@ -558,4 +562,14 @@
   padding: 1rem 0;
   border-top: 1px solid var(--outline-variant);
   margin-top: 1rem;
+}
+
+/* Narrower laptops: trim the cell padding so the columns fit without a
+   horizontal scrollbar inside the table card. */
+@media (max-width: 1440px) {
+  .data-table th,
+  .data-table td {
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
 }

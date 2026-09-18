@@ -102,11 +102,16 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* Without this a wide table stretches the column past the window instead of
+     scrolling inside its own card. */
+  min-width: 0;
+  max-width: calc(100% - 256px);
 }
 .main-content {
   padding: 2rem;
   flex: 1;
   padding-bottom: 6rem;
+  min-width: 0;
 }
 
 /* Sidebar */
@@ -265,8 +270,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   height: 64px;
   padding: 0 2rem;
+  min-width: 0;
   background-color: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(195, 198, 207, 0.3);
@@ -275,6 +282,9 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 440px;
 }
 .search-input {
   background: transparent;
@@ -292,6 +302,7 @@ body {
   display: flex;
   align-items: center;
   color: var(--deep-navy);
+  flex-shrink: 0;
 }
 .profile-trigger {
   display: flex;
