@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./screens.css";
 import { NEWS_CATEGORIES, createNews, uploadNewsImage } from "../services/newsService";
+import RichTextEditor from "../components/RichTextEditor";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -64,7 +65,7 @@ const AddNews = () => {
       setError("Please enter a headline (at least 3 characters).");
       return;
     }
-    if (!content.trim()) {
+    if (!content.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim()) {
       setError("Please enter the article content.");
       return;
     }
@@ -162,29 +163,13 @@ const AddNews = () => {
           </div>
 
           {/* Content */}
-          <div className="glass-card" style={{ display: "flex", flexDirection: "column", height: "480px", overflow: "hidden", padding: 0 }}>
-            <div style={{
-              background: "var(--surface-container-low)", borderBottom: "1px solid var(--border-subtle)",
-              padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px"
-            }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 600, color: "var(--on-surface-variant)" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>article</span>
-                Article content
-              </span>
-              <span style={{ fontSize: "12px", color: "var(--on-surface-variant)" }}>
-                {content.trim() ? content.trim().split(/\s+/).length : 0} words
-              </span>
-            </div>
-            <textarea
+          <div style={{ height: "520px" }}>
+            <RichTextEditor
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write the full news story here. Leave a blank line between paragraphs."
-              aria-label="Article content"
-              style={{
-                flex: 1, width: "100%", padding: "24px", resize: "none", border: "none", outline: "none",
-                background: "transparent", fontSize: "16px", lineHeight: "24px", color: "var(--on-surface)",
-                fontFamily: "Inter, sans-serif"
-              }}
+              onChange={setContent}
+              onUploadImage={async (file) => (await uploadNewsImage(file)).url}
+              placeholder="Write the full news story here…"
+              height="100%"
             />
           </div>
 

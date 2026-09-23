@@ -644,3 +644,73 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* --- Rich text editor --- */
+.rte-toolbar {
+  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--outline-variant);
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.rte-button {
+  padding: 6px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  display: inline-flex;
+  line-height: 0;
+}
+.rte-button:hover { background: var(--surface-container); color: var(--deep-navy); }
+.rte-button.is-active { background: var(--primary-fixed); color: var(--primary); }
+.rte-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.rte-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--outline-variant);
+  margin: 0 4px;
+}
+
+.rte-uploading {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+.rte-surface {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--on-surface);
+}
+.rte-surface:empty::before {
+  content: attr(data-placeholder);
+  color: var(--on-surface-variant);
+}
+.rte-surface h2 { font-size: 22px; font-weight: 700; color: var(--deep-navy); margin: 1.2em 0 0.4em; }
+.rte-surface h3 { font-size: 18px; font-weight: 700; color: var(--deep-navy); margin: 1.1em 0 0.35em; }
+.rte-surface p { margin: 0 0 0.9em; }
+.rte-surface ul,
+.rte-surface ol { margin: 0 0 1em; padding-left: 1.6em; }
+.rte-surface ul { list-style: disc; }
+.rte-surface ol { list-style: decimal; }
+.rte-surface li { margin-bottom: 0.35em; }
+.rte-surface a { color: var(--primary); text-decoration: underline; }
+.rte-surface blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 4px solid var(--safety-yellow, #FFE100);
+  background: var(--surface-container-low);
+  font-style: italic;
+}
+.rte-surface img { max-width: 100%; height: auto; border-radius: 8px; }
+.rte-surface figure { margin: 1em 0; }

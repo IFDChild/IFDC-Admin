@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./screens.css";
 import { createBlog, uploadBlogImage } from "../services/blogService";
+import RichTextEditor from "../components/RichTextEditor";
 
 const AddBlogPost = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [excerpt, setExcerpt] = useState("");
+  const [author, setAuthor] = useState("IFDC");
   const [tagInput, setTagInput] = useState("");
   const [categories, setCategories] = useState([]);
   const [status, setStatus] = useState("Draft");
@@ -72,7 +74,9 @@ const AddBlogPost = () => {
         return;
       }
 
-      if (!body.trim()) {
+      const bodyText = body.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+
+      if (!bodyText) {
         alert("Please enter blog content.");
         return;
       }
@@ -117,7 +121,7 @@ const AddBlogPost = () => {
         featured_image:
           featuredImageUrl,
 
-        author: "IFDC",
+        author: author.trim() || "IFDC",
 
         category:
           categories.length > 0
@@ -212,31 +216,38 @@ const AddBlogPost = () => {
           </div>
 
           {/* Rich Text Editor */}
-          <div className="glass-card" style={{ display: "flex", flexDirection: "column", height: "480px", overflow: "hidden", padding: 0 }}>
-            <div style={{
-              background: "var(--surface-container-low)", borderBottom: "1px solid var(--border-subtle)",
-              padding: "8px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px"
-            }}>
-              {[
-                { icon: "format_bold", title: "Bold" }, { icon: "format_italic", title: "Italic" },
-                { icon: "format_underlined", title: "Underline" }, null,
-                { icon: "format_list_bulleted", title: "Bullet List" }, { icon: "format_list_numbered", title: "Numbered List" }, null,
-                { icon: "link", title: "Link" }, { icon: "image", title: "Insert Image" },
-              ].map((item, i) =>
-                item === null
-                  ? <div key={i} style={{ width: "1px", height: "24px", background: "var(--border-subtle)", margin: "0 4px" }} />
-                  : <button key={item.icon} title={item.title} className="icon-action" style={{ padding: "6px", borderRadius: "4px" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>{item.icon}</span>
-                  </button>
-              )}
-            </div>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)}
-              placeholder="Start writing your post here..."
+          <div style={{ height: "520px" }}>
+            <RichTextEditor
+              value={body}
+              onChange={setBody}
+              onUploadImage={async (file) => (await uploadBlogImage(file)).url}
+              placeholder="Start writing your post here…"
+              height="100%"
+            />
+          </div>
+
+          {/* Author */}
+          <div className="glass-card" style={cardStyle}>
+            <h3 style={{
+              fontSize: "20px", fontWeight: 600, fontFamily: "Hanken Grotesk, sans-serif",
+              color: "var(--on-surface)", marginBottom: "12px"
+            }}>Author</h3>
+            <p style={{ fontSize: "13px", color: "var(--on-surface-variant)", marginBottom: "12px" }}>
+              Shown as the byline on the published post. Leave as IFDC for foundation posts.
+            </p>
+            <input
+              type="text"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="e.g. Dr. M. C. Rasmin"
+              aria-label="Author name"
               style={{
-                flex: 1, width: "100%", padding: "24px", resize: "none", border: "none", outline: "none",
-                background: "transparent", fontSize: "16px", lineHeight: "24px", color: "var(--on-surface)",
-                fontFamily: "Inter, sans-serif"
-              }} />
+                width: "100%", padding: "12px", borderRadius: "8px",
+                border: "1px solid var(--border-subtle)", fontSize: "14px",
+                color: "var(--on-surface)", background: "var(--surface-container-lowest)",
+                outline: "none", fontFamily: "Inter, sans-serif"
+              }}
+            />
           </div>
 
           {/* Excerpt */}
