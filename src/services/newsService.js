@@ -87,3 +87,15 @@ export const deleteNews = async (id) => {
         throw new Error(await readApiError(response, "Failed to delete news article"));
     }
 };
+
+export const getNewsItem = async (id) => {
+    const response = await fetch(`${API_URL}/news/${id}`, {
+        headers: { ...authHeaders() },
+    });
+
+    if (!response.ok) {
+        throw new Error(await readApiError(response, "Failed to load the news article"));
+    }
+
+    return await response.json();
+};

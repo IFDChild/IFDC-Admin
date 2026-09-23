@@ -29,6 +29,7 @@ function App() {
         <Route path="volunteers/review/:id" element={<VolunteerReview />} />
         <Route path="news" element={<ManageNews />} />
         <Route path="news/new" element={<AddNews />} />
+        <Route path="news/edit/:id" element={<AddNews />} />
         <Route path="donations" element={<DonationRequests />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="settings" element={<Settings />} />

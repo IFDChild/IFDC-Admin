@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./screens.css";
-import { NEWS_CATEGORIES, createNews, uploadNewsImage } from "../services/newsService";
+import { NEWS_CATEGORIES, createNews, getNewsItem, newsImageUrl, updateNews, uploadNewsImage } from "../services/newsService";
 import RichTextEditor from "../components/RichTextEditor";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
@@ -18,6 +18,8 @@ const cardStyle = { padding: "24px" };
 
 const AddNews = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -28,10 +30,38 @@ const AddNews = () => {
   const [saving, setSaving] = useState(null); // "published" | "draft" | null
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState("");
+  const [existingImage, setExistingImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isEdit) return undefined;
+
+    let cancelled = false;
+    setLoading(true);
+
+    getNewsItem(id)
+      .then((item) => {
+        if (cancelled) return;
+        setTitle(item.title || "");
+        setContent(item.content || "");
+        setSummary(item.summary || "");
+        setCategory(item.category || "");
+        setExistingImage(item.image || null);
+        if (item.image) setImagePreview(newsImageUrl(item.image));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Could not load this article");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [id, isEdit]);
 
   // Release the object URL when the preview changes or the page unmounts.
   useEffect(() => () => {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
   }, [imagePreview]);
 
   const handleImageChange = (e) => {
@@ -73,7 +103,7 @@ const AddNews = () => {
     setSaving(status);
 
     try {
-      let imageUrl = null;
+      let imageUrl = existingImage;
 
       if (image) {
         setUploadingImage(true);
@@ -82,14 +112,20 @@ const AddNews = () => {
         setUploadingImage(false);
       }
 
-      await createNews({
+      const payload = {
         title: title.trim(),
         summary: summary.trim() || null,
         content: content.trim(),
         image: imageUrl,
         category: category || null,
         status,
-      });
+      };
+
+      if (isEdit) {
+        await updateNews(id, payload);
+      } else {
+        await createNews(payload);
+      }
 
       navigate("/news");
     } catch (err) {
@@ -121,9 +157,9 @@ const AddNews = () => {
             News Management
           </button>
           <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>chevron_right</span>
-          <span style={{ color: "var(--on-surface)" }}>Add News</span>
+          <span style={{ color: "var(--on-surface)" }}>{isEdit ? "Edit News" : "Add News"}</span>
         </div>
-        <h1 className="screen-title">Add News</h1>
+        <h1 className="screen-title">{isEdit ? "Edit News" : "Add News"}</h1>
       </div>
 
       {error && (
@@ -227,7 +263,7 @@ const AddNews = () => {
                 disabled={busy}
                 style={{ width: "100%", justifyContent: "center", opacity: busy ? 0.6 : 1, cursor: busy ? "not-allowed" : "pointer" }}
               >
-                {buttonLabel("published", "Publish Now")}
+                {buttonLabel("published", isEdit ? "Save & publish" : "Publish Now")}
               </button>
               <button
                 className="btn"
@@ -239,7 +275,7 @@ const AddNews = () => {
                   opacity: busy ? 0.6 : 1, cursor: busy ? "not-allowed" : "pointer"
                 }}
               >
-                {buttonLabel("draft", "Save Draft")}
+                {buttonLabel("draft", isEdit ? "Save as draft" : "Save Draft")}
               </button>
             </div>
           </div>

@@ -210,6 +210,14 @@ const ManageNews = () => {
                     <div className="row-actions">
                       <button
                         className="icon-action"
+                        title="Edit"
+                        onClick={() => navigate(`/news/edit/${item.id}`)}
+                      >
+                        <span className="material-symbols-outlined">edit</span>
+                      </button>
+
+                      <button
+                        className="icon-action"
                         title={item.status === "published" ? "Unpublish (move to draft)" : "Publish"}
                         disabled={busyId === item.id}
                         onClick={() => toggleStatus(item)}
