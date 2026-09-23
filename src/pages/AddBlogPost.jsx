@@ -1,11 +1,14 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "./screens.css";
-import { createBlog, uploadBlogImage } from "../services/blogService";
+import { createBlog, getBlog, updateBlog, uploadBlogImage } from "../services/blogService";
+import { MEDIA_URL } from "../services/apiConfig";
 import RichTextEditor from "../components/RichTextEditor";
 
 const AddBlogPost = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [excerpt, setExcerpt] = useState("");
@@ -17,8 +20,38 @@ const AddBlogPost = () => {
   const [featuredImage, setFeaturedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [existingImage, setExistingImage] = useState(null);
+  const [loadError, setLoadError] = useState("");
 
   const allCategories = ["News", "Education", "Safety Alerts", "Events", "Community"];
+
+  useEffect(() => {
+    if (!isEdit) return undefined;
+
+    let cancelled = false;
+    setLoading(true);
+
+    getBlog(id)
+      .then((post) => {
+        if (cancelled) return;
+        setTitle(post.title || "");
+        setBody(post.content || "");
+        setExcerpt(post.excerpt || "");
+        setAuthor(post.author || "IFDC");
+        setCategories(post.category ? [post.category] : []);
+        setStatus(post.status === "published" ? "Published" : "Draft");
+        setExistingImage(post.featured_image || null);
+        setImagePreview(post.featured_image ? `${MEDIA_URL}${post.featured_image}` : "");
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error.message || "Could not load this post");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [id, isEdit]);
 
   const toggleCategory = (cat) =>
     setCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
@@ -83,7 +116,7 @@ const AddBlogPost = () => {
 
       setLoading(true);
 
-      let featuredImageUrl = null;
+      let featuredImageUrl = existingImage;
 
 
       // ============================
@@ -140,20 +173,19 @@ const AddBlogPost = () => {
       );
 
 
-      const response =
+      if (isEdit) {
+        await updateBlog(id, blogData);
+      } else {
         await createBlog(blogData);
-
-
-      console.log(
-        "Blog created:",
-        response
-      );
+      }
 
 
       alert(
-        publish
-          ? "Blog published successfully!"
-          : "Blog saved as draft successfully!"
+        isEdit
+          ? "Blog post updated."
+          : publish
+            ? "Blog published successfully!"
+            : "Blog saved as draft successfully!"
       );
 
 
@@ -163,7 +195,7 @@ const AddBlogPost = () => {
     } catch (error) {
 
       console.error(
-        "Create blog error:",
+        isEdit ? "Update blog error:" : "Create blog error:",
         error
       );
 
@@ -171,7 +203,7 @@ const AddBlogPost = () => {
 
       alert(
         error.message ||
-        "Failed to create blog"
+        (isEdit ? "Failed to update blog" : "Failed to create blog")
       );
 
 
@@ -193,9 +225,10 @@ const AddBlogPost = () => {
             Blog Management
           </button>
           <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>chevron_right</span>
-          <span style={{ color: "var(--on-surface)" }}>Add New Post</span>
+          <span style={{ color: "var(--on-surface)" }}>{isEdit ? "Edit Post" : "Add New Post"}</span>
         </div>
-        <h1 className="screen-title">Add New Post</h1>
+        <h1 className="screen-title">{isEdit ? "Edit Post" : "Add New Post"}</h1>
+        {loadError && <div className="form-error" role="alert">{loadError}</div>}
       </div>
 
       {/* Two-column grid */}
@@ -309,8 +342,10 @@ const AddBlogPost = () => {
                 {uploadingImage
                   ? "Uploading Image..."
                   : loading
-                    ? "Publishing..."
-                    : "Publish Now"}
+                    ? "Saving..."
+                    : isEdit
+                      ? "Save & publish"
+                      : "Publish Now"}
               </button>
               <button
                 className="btn"
@@ -332,7 +367,9 @@ const AddBlogPost = () => {
                   ? "Uploading Image..."
                   : loading
                     ? "Saving..."
-                    : "Save Draft"}
+                    : isEdit
+                      ? "Save as draft"
+                      : "Save Draft"}
               </button>
             </div>
           </div>

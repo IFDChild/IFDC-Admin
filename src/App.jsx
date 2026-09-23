@@ -24,6 +24,7 @@ function App() {
         <Route index element={<Overview />} />
         <Route path="blogs" element={<ManageBlogs />} />
         <Route path="blogs/new" element={<AddBlogPost />} />
+        <Route path="blogs/edit/:id" element={<AddBlogPost />} />
         <Route path="volunteers" element={<ManageVolunteers />} />
         <Route path="volunteers/review/:id" element={<VolunteerReview />} />
         <Route path="news" element={<ManageNews />} />

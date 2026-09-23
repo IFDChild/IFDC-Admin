@@ -82,3 +82,40 @@ export const deleteBlog = async (id) => {
         throw new Error(message);
     }
 };
+
+export const getBlog = async (id) => {
+    const response = await fetch(`${API_URL}/blogs/${id}`, {
+        headers: { ...authHeaders() },
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            errorData.detail || "Failed to load the blog post"
+        );
+    }
+
+    return await response.json();
+};
+
+export const updateBlog = async (id, changes) => {
+    const response = await fetch(`${API_URL}/blogs/${id}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+        },
+        body: JSON.stringify(changes),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            typeof errorData.detail === "string" ? errorData.detail : "Failed to save the blog post"
+        );
+    }
+
+    return await response.json();
+};

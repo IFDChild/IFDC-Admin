@@ -30,11 +30,10 @@ const TOOLBAR = [
 const RichTextEditor = ({ value, onChange, onUploadImage, placeholder = "Start writing…", height = 480 }) => {
     const editorRef = useRef(null);
     const fileRef = useRef(null);
+    const lastEmitted = useRef(null);
     const [uploading, setUploading] = useState(false);
     const [active, setActive] = useState({});
 
-    // Only write into the element when the value came from outside (loading a
-    // draft); writing on every keystroke would move the caret to the start.
     useEffect(() => {
         try {
             document.execCommand("defaultParagraphSeparator", false, "p");
@@ -43,13 +42,16 @@ const RichTextEditor = ({ value, onChange, onUploadImage, placeholder = "Start w
         }
     }, []);
 
+    // Write into the element only when the value came from outside - loading a
+    // post to edit. Echoing back what we just emitted would move the caret to
+    // the start on every keystroke.
     useEffect(() => {
         const el = editorRef.current;
-        if (el && value !== el.innerHTML) {
-            el.innerHTML = value || "";
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value === undefined]);
+        if (!el) return;
+        if (value === lastEmitted.current) return;
+        if ((value || "") === el.innerHTML) return;
+        el.innerHTML = value || "";
+    }, [value]);
 
     /** Loose text and <div> wrappers become paragraphs, which is what the site renders. */
     const normalise = (el) => {
@@ -82,6 +84,7 @@ const RichTextEditor = ({ value, onChange, onUploadImage, placeholder = "Start w
         if (!el) return;
         normalise(el);
         const html = el.innerHTML === "<br>" || !el.textContent.trim() ? "" : el.innerHTML;
+        lastEmitted.current = html;
         onChange(html);
     }, [onChange]);
 
